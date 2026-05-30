@@ -1,0 +1,414 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "WhatsApp-integratie verbinden",
+        "data": {
+          "host": "Add-on host-URL",
+          "api_key": "API-token (uit de add-on-UI)"
+        },
+        "description": "Voer de URL van je WhatsApp-add-on in.\n\nTypische URL's:\n- `http://localhost:8066` (Docker/Lokaal)\n- `http://addon-slug:8066` (HA-add-on)\n\n[Installatiehandleiding]({setup_url})"
+      },
+      "scan": {
+        "title": "QR-code scannen",
+        "data": {
+          "use_phone_pairing": "In plaats daarvan koppelen met telefoonnummer"
+        },
+        "description": "Scan de onderstaande QR-code met je WhatsApp-app op je mobiel (Gekoppelde apparaten).\n\n![QR Code]({qr_image})\n\n**Klik op Verzenden nadat je de code succesvol hebt gescand.**"
+      },
+      "phone_pairing": {
+        "title": "Koppelen met telefoonnummer",
+        "data": {
+          "phone_number": "Telefoonnummer (met landcode, bijv. 49151...)"
+        },
+        "description": "Voer je telefoonnummer in om een koppelingscode aan te vragen."
+      },
+      "show_pairing_code": {
+        "title": "Koppelingscode",
+        "description": "Voer deze koppelingscode in je WhatsApp-app op je mobiel in: **{pairing_code}**\n\n**Klik op Verzenden nadat je de code succesvol hebt ingevoerd.**"
+      },
+      "hassio_confirm": {
+        "title": "Officiële add-on installeren",
+        "data": {
+          "version": "Add-on-versie"
+        },
+        "description": "Wil je de officiële WhatsApp-add-on installeren? Dit is de aanbevolen manier om deze integratie te gebruiken op Home Assistant OS."
+      },
+      "discovery_confirm": {
+        "title": "Detectie bevestigen",
+        "description": "Wil je de **WhatsApp Homeassistant App (voorheen add-on)** die is gevonden op `{host}` instellen?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met de WhatsApp-add-on. Zorg ervoor dat de [WhatsApp-add-on]({addon_url}) is geïnstalleerd en actief is.",
+      "invalid_auth": "Ongeldige authenticatie",
+      "connection_error": "Niet verbonden met WhatsApp. Scan eerst de QR-code.",
+      "addon_install_error": "Installeren van de WhatsApp-add-on is mislukt. Controleer de Supervisor-logs.",
+      "rate_limit": "Te veel verzoeken. Wacht 15 minuten en probeer het opnieuw.",
+      "unknown": "Onverwachte fout"
+    },
+    "abort": {
+      "already_configured": "Apparaat is al geconfigureerd",
+      "single_instance_allowed": "Er is slechts één instantie van deze integratie toegestaan.",
+      "missing_dependency": "Ontbrekende afhankelijkheid voor het genereren van de QR-code.",
+      "invalid_auth": "Ongeldige authenticatie",
+      "connection_error": "Verbindingsfout",
+      "unknown": "Onverwachte fout"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "WhatsApp-opties",
+        "data": {
+          "debug_payloads": "Debug-payloads (inkomende gebeurtenissen loggen in het HA-log)",
+          "polling_interval": "Pollinginterval (seconden)",
+          "mask_sensitive_data": "Gevoelige gegevens maskeren in logs",
+          "mark_as_read": "Berichten als gelezen markeren (blauwe vinkjes verzenden)",
+          "api_key": "API-sleutel",
+          "retry_attempts": "Aantal nieuwe pogingen (bij fouten)",
+          "whitelist": "Whitelist voor gebruikers/groepen (komma-gescheiden telefoonnummers of groeps-ID's. Laat leeg voor geen whitelist)",
+          "self_messages": "Berichten van jezelf verwerken",
+          "reset_session": "Sessie resetten (uitloggen en add-on-gegevens wissen)"
+        },
+        "description": "⚠️ LET OP: 'Sessie resetten' logt je uit en verwijdert de sessiegegevens op de add-on."
+      }
+    },
+    "error": {
+      "reset_failed": "Sessie kon niet worden gereset. Controleer de logs.",
+      "invalid_auth": "Ongeldige authenticatie"
+    }
+  },
+  "services": {
+    "send_message": {
+      "name": "Bericht verzenden",
+      "description": "Verzendt een tekstbericht naar een WhatsApp-nummer.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "message": {
+          "name": "Bericht",
+          "description": "De te verzenden tekst."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer waarnaar verzonden moet worden."
+        },
+        "quote": {
+          "name": "Bericht-ID citeren",
+          "description": "De ID van een bericht om te citeren of waarop geantwoord moet worden."
+        },
+        "expiration": {
+          "name": "Vervaltijd (seconden)",
+          "description": "Duur waarna het bericht verdwijnt."
+        }
+      }
+    },
+    "send_document": {
+      "name": "Document verzenden",
+      "description": "Verzendt een document (PDF, zip, doc, enz.) naar een WhatsApp-nummer.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID waarnaar verzonden moet worden."
+        },
+        "url": {
+          "name": "URL",
+          "description": "De URL van het te verzenden document."
+        },
+        "file_name": {
+          "name": "Bestandsnaam",
+          "description": "Optionele vervanging voor de bestandsnaam."
+        },
+        "message": {
+          "name": "Bijschrift",
+          "description": "Optioneel bijschrift voor het document."
+        }
+      }
+    },
+    "send_video": {
+      "name": "Video verzenden",
+      "description": "Verzendt een videobestand naar een WhatsApp-nummer.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID waarnaar verzonden moet worden."
+        },
+        "url": {
+          "name": "URL",
+          "description": "De URL van de te verzenden video."
+        },
+        "message": {
+          "name": "Bijschrift",
+          "description": "Optioneel bijschrift voor de video."
+        }
+      }
+    },
+    "send_audio": {
+      "name": "Audio verzenden",
+      "description": "Verzendt een audiobestand of spraakbericht.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID waarnaar verzonden moet worden."
+        },
+        "url": {
+          "name": "URL",
+          "description": "De URL van het audiobestand."
+        },
+        "ptt": {
+          "name": "Spraakbericht (PTT)",
+          "description": "Verzenden als spraakbericht (golfvorm) in plaats van als audio (bestand)."
+        }
+      }
+    },
+    "revoke_message": {
+      "name": "Bericht verwijderen",
+      "description": "Verwijdert een verzonden bericht voor iedereen.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID waarnaar het bericht is verzonden."
+        },
+        "message_id": {
+          "name": "Bericht-ID",
+          "description": "De ID van het te verwijderen bericht."
+        }
+      }
+    },
+    "edit_message": {
+      "name": "Bericht bewerken",
+      "description": "Bewerkt de tekst van een verzonden bericht.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID waarnaar het bericht is verzonden."
+        },
+        "message_id": {
+          "name": "Bericht-ID",
+          "description": "De ID van het te bewerken bericht."
+        },
+        "message": {
+          "name": "Nieuwe tekst",
+          "description": "De nieuwe tekstinhoud voor het bericht."
+        }
+      }
+    },
+    "send_list": {
+      "name": "Lijstbericht verzenden",
+      "description": "Verzendt een interactieve lijst (actiemenu).",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "De titel van het menu."
+        },
+        "text": {
+          "name": "Hoofdtekst",
+          "description": "De hoofdtekst."
+        },
+        "button_text": {
+          "name": "Knoplabel",
+          "description": "Tekst voor de menuknop (bijv. Menu)."
+        },
+        "sections": {
+          "name": "Secties (JSON)",
+          "description": "De secties en rijen (JSON-lijst)."
+        }
+      }
+    },
+    "send_contact": {
+      "name": "Contact verzenden",
+      "description": "Verzendt een contactkaart (vCard).",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer of de groeps-ID."
+        },
+        "name": {
+          "name": "Weergavenaam",
+          "description": "De naam van het contact."
+        },
+        "contact_number": {
+          "name": "Contactnummer",
+          "description": "Het telefoonnummer van het contact."
+        }
+      }
+    },
+    "configure_webhook": {
+      "name": "Webhook configureren",
+      "description": "Stelt de webhook-URL in waarnaar de add-on gebeurtenissen verzendt.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "url": {
+          "name": "Webhook-URL",
+          "description": "De URL waarnaar gebeurtenissen verzonden moeten worden."
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Webhook in- of uitschakelen."
+        },
+        "token": {
+          "name": "Token",
+          "description": "Optioneel beveiligingstoken."
+        }
+      }
+    },
+    "send_reaction": {
+      "name": "Reactie verzenden",
+      "description": "Reageert met een emoji op een bericht.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "reaction": {
+          "name": "Reactie",
+          "description": "De emoji om mee te reageren."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "Het telefoonnummer van de chat."
+        },
+        "message_id": {
+          "name": "Bericht-ID",
+          "description": "De ID van het bericht waarop gereageerd moet worden."
+        }
+      }
+    },
+    "update_presence": {
+      "name": "Aanwezigheid bijwerken",
+      "description": "Werkt je aanwezigheidsstatus bij (bijv. aan het typen).",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "presence": {
+          "name": "Aanwezigheid",
+          "description": "Een van: available, unavailable, composing, recording, paused."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "De chat waarvoor de aanwezigheid bijgewerkt moet worden."
+        }
+      }
+    },
+    "send_buttons": {
+      "name": "Knoppen verzenden",
+      "description": "Verzendt een bericht met interactieve knoppen.",
+      "fields": {
+        "account": {
+          "name": "Account",
+          "description": "De WhatsApp-account-ID (alleen nodig bij meerdere accounts)."
+        },
+        "target": {
+          "name": "Doelnummer",
+          "description": "De chat waarnaar verzonden moet worden."
+        },
+        "message": {
+          "name": "Bericht",
+          "description": "De hoofdtekst."
+        },
+        "buttons": {
+          "name": "Knoppen",
+          "description": "Lijst van knoppen, gedefinieerd als objecten met id en displayText."
+        },
+        "footer": {
+          "name": "Voettekst",
+          "description": "Optionele voettekst."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "sent": {
+        "name": "Verzonden berichten"
+      },
+      "received": {
+        "name": "Ontvangen berichten"
+      },
+      "failed": {
+        "name": "Mislukte berichten"
+      },
+      "uptime": {
+        "name": "Uptime"
+      },
+      "version": {
+        "name": "WhatsApp-versie"
+      },
+      "phone_number": {
+        "name": "Telefoonnummer"
+      },
+      "chats": {
+        "name": "Chats"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Verbinding"
+      }
+    },
+    "button": {
+      "diagnostic_test": {
+        "name": "Diagnosetest"
+      }
+    },
+    "notify": {
+      "whatsapp": {
+        "name": "WhatsApp-integratie"
+      }
+    }
+  },
+  "issues": {
+    "connection_failed": {
+      "title": "Verbinding met WhatsApp-add-on mislukt",
+      "description": "De integratie kan de WhatsApp-add-on niet bereiken op de geconfigureerde URL. Zorg ervoor dat de add-on actief is en de URL correct is.\n\nFout: {error}"
+    },
+    "session_expired": {
+      "title": "WhatsApp-sessie verlopen",
+      "description": "Je WhatsApp-sessie is niet langer actief of is beëindigd op de telefoon. Koppel je apparaat opnieuw via de webinterface van de add-on."
+    },
+    "connection_error_baileys": {
+      "title": "WhatsApp-verbinding onderbroken",
+      "description": "De WhatsApp-add-on heeft verbindingsproblemen (waarschijnlijk een bekende bug in de Baileys-bibliotheek). De add-on probeert automatisch opnieuw verbinding te maken. Er is geen actie nodig — dit probleem lost zichzelf op zodra de verbinding is hersteld."
+    }
+  }
+}
